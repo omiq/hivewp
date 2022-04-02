@@ -179,11 +179,11 @@ function HiveWP_field_by_cb( $args ) {
             data-custom="<?php echo esc_attr( $args['HiveWP_custom_data'] ); ?>"
             name="HiveWP_options[<?php echo esc_attr( $args['label_for'] ); ?>]">
 
-        <option value="draft" <?php echo isset( $options[ $args['label_for'] ] ) ? ( selected( $options[ $args['label_for'] ], 'author', false ) ) : ( '' ); ?>>
+        <option value="author" <?php echo isset( $options[ $args['label_for'] ] ) ? ( selected( $options[ $args['label_for'] ], 'author', false ) ) : ( '' ); ?>>
             <?php esc_html_e( 'Author', 'HiveWP' ); ?>
         </option>
 
-        <option value="publish" <?php echo isset( $options[ $args['label_for'] ] ) ? ( selected( $options[ $args['label_for'] ], 'community', false ) ) : ( '' ); ?>>
+        <option value="community" <?php echo isset( $options[ $args['label_for'] ] ) ? ( selected( $options[ $args['label_for'] ], 'community', false ) ) : ( '' ); ?>>
             <?php esc_html_e( 'Community', 'HiveWP' ); ?>
         </option>
     </select>
