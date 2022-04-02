@@ -180,11 +180,11 @@ function HiveWP_field_by_cb( $args ) {
             name="HiveWP_options[<?php echo esc_attr( $args['label_for'] ); ?>]">
 
         <option value="draft" <?php echo isset( $options[ $args['label_for'] ] ) ? ( selected( $options[ $args['label_for'] ], 'author', false ) ) : ( '' ); ?>>
-            <?php esc_html_e( 'True', 'HiveWP' ); ?>
+            <?php esc_html_e( 'Author', 'HiveWP' ); ?>
         </option>
 
         <option value="publish" <?php echo isset( $options[ $args['label_for'] ] ) ? ( selected( $options[ $args['label_for'] ], 'community', false ) ) : ( '' ); ?>>
-            <?php esc_html_e( 'False', 'HiveWP' ); ?>
+            <?php esc_html_e( 'Community', 'HiveWP' ); ?>
         </option>
     </select>
 
@@ -362,13 +362,13 @@ include 'Parsedown.php';
         $hive_user = isset($options['HiveWP_field_user']) ? $options['HiveWP_field_user'] : ( '' );
         $publish = isset($options['HiveWP_field_publish']) ? $options['HiveWP_field_publish'] : ( 'draft' );
         $qty = isset($options['HiveWP_field_qty']) ? $options['HiveWP_field_qty'] : ( '30' );
-        $list_by_author = isset($options['HiveWP_field_by']) ? $options['HiveWP_field_by'] : ( 'True' );
+        $list_by_author = isset($options['HiveWP_field_by']) ? $options['HiveWP_field_by'] : ( 'author' );
         if($qty < 1 || $qty > 100) $qty = '30';
 
         if($hive_user=="") return;
 
         // Set up our query
-        if ($list_by_author=="True")
+        if ($list_by_author=="author")
         {
             $query = '{"jsonrpc":"2.0","method":"condenser_api.get_discussions_by_blog","params":[{"tag":"'.$hive_user.'","limit":'.$qty.'}],"id":0}';
         }
