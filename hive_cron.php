@@ -64,6 +64,19 @@ function HiveWP_settings_init() {
     );
 
     add_settings_field(
+        'HiveWP_field_user', 
+            __( 'By', 'HiveWP' ),
+        'HiveWP_field_by_cb',
+        'HiveWP',
+        'HiveWP_section_developers',
+        array(
+            'label_for'         => 'HiveWP_field_by',
+            'class'             => 'HiveWP_row',
+            'HiveWP_custom_data' => 'custom',
+        )
+    );
+
+    add_settings_field(
         'HiveWP_field_publish', 
             __( 'Publish', 'HiveWP' ),
         'HiveWP_field_publish_cb',
@@ -146,7 +159,38 @@ function HiveWP_field_user_cb( $args ) {
           
     
     <p class="description">
-        <?php esc_html_e( 'Set the Hive user to pull posts from (without @)', 'HiveWP' ); ?>
+        <?php esc_html_e( 'Set the Hive user or community to pull posts from (without @)', 'HiveWP' ); ?>
+    </p>
+
+
+    <?php
+}
+
+/**
+ * List by author or community callback
+ */
+function HiveWP_field_by_cb( $args ) {
+    // Get the value of the setting we've registered with register_setting()
+    $options = get_option( 'HiveWP_options' );
+    ?>
+
+    <select
+            id="<?php echo esc_attr( $args['label_for'] ); ?>"
+            data-custom="<?php echo esc_attr( $args['HiveWP_custom_data'] ); ?>"
+            name="HiveWP_options[<?php echo esc_attr( $args['label_for'] ); ?>]">
+
+        <option value="draft" <?php echo isset( $options[ $args['label_for'] ] ) ? ( selected( $options[ $args['label_for'] ], 'true', false ) ) : ( '' ); ?>>
+            <?php esc_html_e( 'True', 'HiveWP' ); ?>
+        </option>
+
+        <option value="publish" <?php echo isset( $options[ $args['label_for'] ] ) ? ( selected( $options[ $args['label_for'] ], 'false', false ) ) : ( '' ); ?>>
+            <?php esc_html_e( 'False', 'HiveWP' ); ?>
+        </option>
+    </select>
+
+    
+    <p class="description">
+        <?php esc_html_e( 'Specified account is an author or community', 'HiveWP' ); ?>
     </p>
 
 
@@ -318,12 +362,21 @@ include 'Parsedown.php';
         $hive_user = isset($options['HiveWP_field_user']) ? $options['HiveWP_field_user'] : ( '' );
         $publish = isset($options['HiveWP_field_publish']) ? $options['HiveWP_field_publish'] : ( 'draft' );
         $qty = isset($options['HiveWP_field_qty']) ? $options['HiveWP_field_qty'] : ( '30' );
+        $list_by_author = isset($options['HiveWP_field_by']) ? $options['HiveWP_field_by'] : ( 'True' );
         if($qty < 1 || $qty > 100) $qty = '30';
 
         if($hive_user=="") return;
 
         // Set up our query
-        $query = '{"jsonrpc":"2.0","method":"condenser_api.get_discussions_by_blog","params":[{"tag":"'.$hive_user.'","limit":'.$qty.'}],"id":0}';
+        if ($list_by_author=="True")
+        {
+            $query = '{"jsonrpc":"2.0","method":"condenser_api.get_discussions_by_blog","params":[{"tag":"'.$hive_user.'","limit":'.$qty.'}],"id":0}';
+        }
+        else
+        {
+            $query = '{"jsonrpc":"2.0", "method":"condenser_api.get_discussions_by_created", "params":[{"tag":"'.$hive_user.'","limit":'.$qty.',"truncate_body":0}], "id":1}';
+        }
+
         $ch = curl_init("https://api.hive.blog");
         curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);

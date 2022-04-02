@@ -3,7 +3,7 @@
 // Set up our query
 //$query = '{"jsonrpc":"2.0","method":"condenser_api.get_discussions_by_blog","params":[{"tag":"makerhacks","limit":30}],"id":0}';
 
-$query = '{"jsonrpc":"2.0","method":"condenser_api.get_discussions_by_created","params":[{"tag":"hive-103257","limit":30,}],"id":0}';
+$query = '{"jsonrpc":"2.0", "method":"condenser_api.get_discussions_by_created", "params":[{"tag":"hive-103257","limit":10,"truncate_body":0}], "id":1}';
 
 
 $ch = curl_init("https://api.hive.blog");
@@ -43,7 +43,7 @@ for($x = 0; $x < count($posts['result']); $x++) {
     }
     
 }
-
+//
 print($content);
 
 ?>
