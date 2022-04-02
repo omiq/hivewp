@@ -64,7 +64,7 @@ function HiveWP_settings_init() {
     );
 
     add_settings_field(
-        'HiveWP_field_user', 
+        'HiveWP_field_by', 
             __( 'By', 'HiveWP' ),
         'HiveWP_field_by_cb',
         'HiveWP',
