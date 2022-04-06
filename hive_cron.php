@@ -370,14 +370,13 @@ include 'Parsedown.php';
         // Set up our query
         if ($list_by_author=="author")
         {
-            $query = '{"jsonrpc":"2.0","method":"condenser_api.get_discussions_by_blog","params":[{"tag":"'.$hive_user.'","limit":'.$qty.'}],"id":0}';
+            $query = 'https://omiq.ca/Hive/feed.py?blog=%'.$hive_user.'%&by=author&qty='.$qty;
         }
         else
         {
-            $query = '{"jsonrpc":"2.0", "method":"condenser_api.get_discussions_by_created", "params":[{"tag":"'.$hive_user.'","limit":'.$qty.',"truncate_body":0}], "id":1}';
+            $query = 'https://omiq.ca/Hive/feed.py?blog=%'.$hive_user.'%&by=community&qty='.$qty;
         }
 
-        $query = 'https://omiq.ca/Hive/feed.py?blog=%%&tag=%%22stemgeeks%22%&filter=%biology%';
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $query);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
@@ -400,28 +399,25 @@ include 'Parsedown.php';
             $meta=json_decode($post['json_metadata'],TRUE);
             $image=$meta['image'];
             $tags=join(', ',$meta['tags']);
-            $post_id = $post['post_id'];
+            $post_id = $post['ID'];
 
-            // Don't Show Cross-Posts
-            if(stristr($tags, 'cross-post')==FALSE){
-
-                $wp_post = array(
-                    'post_date'=>$post['created'],
-                    'post_title'=>$post['title'],
-                    'post_content'=>$Parsedown->text($post['body']),
-                    'tags_input'=>$tags,
-                    'import_id'=>$post_id,
-                    'post_status'   => $publish,
-                    );
+            // Insert the post
+            $wp_post = array(
+                'post_date'=>$post['created'],
+                'post_title'=>$post['title'],
+                'post_content'=>$Parsedown->text($post['body']),
+                'tags_input'=>$tags,
+                'import_id'=>$post_id,
+                'post_status'   => $publish,
+                );
 
 
-                if ( FALSE === get_post_status( $post_id ) ) {
-                    wp_insert_post($wp_post);
-                } else {
-                    //
-                }
-      
+            if ( FALSE === get_post_status( $post_id ) ) {
+                wp_insert_post($wp_post);
+            } else {
+                //
             }
+      
         }
 
         return;
