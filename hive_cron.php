@@ -9,7 +9,7 @@
  * Plugin Name:       HiveWP_cron
  * Plugin URI:        https://hivewp.com
  * Description:       Imports the author's blog posts from the Hive Blockchain
- * Version:           1.0.0
+ * Version:           1.0.5
  * Author:            Chris Garrett
  * Author URI:        https://hivewp.com
  * License:           GPL-2.0+
@@ -377,8 +377,9 @@ include 'Parsedown.php';
             $query = '{"jsonrpc":"2.0", "method":"condenser_api.get_discussions_by_created", "params":[{"tag":"'.$hive_user.'","limit":'.$qty.',"truncate_body":0}], "id":1}';
         }
 
-        $ch = curl_init("https://api.hive.blog");
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
+        $query = 'https://omiq.ca/Hive/feed.py?blog=%%&tag=%%22stemgeeks%22%&filter=%biology%';
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $query);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
 
         // Get the response from the API
@@ -392,10 +393,10 @@ include 'Parsedown.php';
         $Parsedown = new Parsedown();
 
         // Iterate through the returned posts
-        for($x = 0; $x < count($posts['result']); $x++) {
+        for($x = 0; $x < count($posts); $x++) {
 
             // Pull out specifics
-            $post=$posts['result'][$x];
+            $post=$posts[$x];
             $meta=json_decode($post['json_metadata'],TRUE);
             $image=$meta['image'];
             $tags=join(', ',$meta['tags']);
