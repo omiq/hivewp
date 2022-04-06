@@ -370,11 +370,11 @@ include 'Parsedown.php';
         // Set up our query
         if ($list_by_author=="author")
         {
-            $query = 'https://omiq.ca/Hive/feed.py?blog=%'.$hive_user.'%&by=author&qty='.$qty;
+            $query = 'https://omiq.ca/Hive/feed.py?blog='.$hive_user.'&by=author&qty='.$qty;
         }
         else
         {
-            $query = 'https://omiq.ca/Hive/feed.py?blog=%'.$hive_user.'%&by=community&qty='.$qty;
+            $query = 'https://omiq.ca/Hive/feed.py?blog='.$hive_user.'&by=community&qty='.$qty;
         }
 
         $ch = curl_init();
