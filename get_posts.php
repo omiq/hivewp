@@ -3,11 +3,9 @@
 // Set up our query
 //$query = '{"jsonrpc":"2.0","method":"condenser_api.get_discussions_by_blog","params":[{"tag":"makerhacks","limit":30}],"id":0}';
 
-$query = '{"jsonrpc":"2.0", "method":"condenser_api.get_discussions_by_created", "params":[{"tag":"hive-103257","limit":10,"truncate_body":0}], "id":1}';
-
-
-$ch = curl_init("https://api.hive.blog");
-curl_setopt($ch, CURLOPT_POSTFIELDS, $query);
+$query = 'https://omiq.ca/Hive/feed.py?blog=%%&tag=%%22stemgeeks%22%&filter=%biology%';
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $query);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
 
 // Get the response from the API
@@ -20,11 +18,12 @@ curl_close($ch);
 $posts=json_decode($response, TRUE);
 //print_r($posts);
 
+
 // Iterate through the returned posts
-for($x = 0; $x < count($posts['result']); $x++) {
+for($x = 0; $x < count($posts); $x++) {
 
     // Pull out specifics
-    $post=$posts['result'][$x];
+    $post=$posts[$x];
     $meta=json_decode($post['json_metadata'],TRUE);
     $image=$meta['image'];
     $tags=join(', ',$meta['tags']);
@@ -45,5 +44,5 @@ for($x = 0; $x < count($posts['result']); $x++) {
 }
 //
 print($content);
-
+//*/
 ?>
