@@ -9,7 +9,7 @@
  * Plugin Name:       HiveWP_cron
  * Plugin URI:        https://hivewp.com
  * Description:       Imports the author's blog posts from the Hive Blockchain
- * Version:           1.0.5
+ * Version:           1.0.6
  * Author:            Chris Garrett
  * Author URI:        https://hivewp.com
  * License:           GPL-2.0+
@@ -71,6 +71,33 @@ function HiveWP_settings_init() {
         'HiveWP_section_developers',
         array(
             'label_for'         => 'HiveWP_field_by',
+            'class'             => 'HiveWP_row',
+            'HiveWP_custom_data' => 'custom',
+        )
+    );
+
+    add_settings_field(
+        'HiveWP_field_inc_tag', 
+            __( 'Include Tagged', 'HiveWP' ),
+        'HiveWP_field_inc_tag_cb',
+        'HiveWP',
+        'HiveWP_section_developers',
+        array(
+            'label_for'         => 'HiveWP_field_inc_tag',
+            'class'             => 'HiveWP_row',
+            'HiveWP_custom_data' => 'custom',
+        )
+    );
+
+
+    add_settings_field(
+        'HiveWP_field_ex_tag', 
+            __( 'Exclude Tagged', 'HiveWP' ),
+        'HiveWP_field_ex_tag_cb',
+        'HiveWP',
+        'HiveWP_section_developers',
+        array(
+            'label_for'         => 'HiveWP_field_ex_tag',
             'class'             => 'HiveWP_row',
             'HiveWP_custom_data' => 'custom',
         )
@@ -160,6 +187,54 @@ function HiveWP_field_user_cb( $args ) {
     
     <p class="description">
         <?php esc_html_e( 'Set the Hive user or community to pull posts from (without @)', 'HiveWP' ); ?>
+    </p>
+
+
+    <?php
+}
+
+/**
+ * Inc Tag field callback
+ */
+function HiveWP_field_inc_tag_cb( $args ) {
+    // Get the value of the setting we've registered with register_setting()
+    $options = get_option( 'HiveWP_options' );
+    ?>
+          
+             
+    <input id="<?php echo esc_attr( $args['label_for'] ); ?>" type="text" 
+    value="<?php echo isset( $options[ $args['label_for'] ] ) ? $options[ $args['label_for'] ] : ( '' ); ?>"
+        
+    data-custom="<?php echo esc_attr( $args['HiveWP_custom_data'] ); ?>" name="HiveWP_options[<?php echo esc_attr( $args['label_for'] ); ?>]">
+
+          
+    
+    <p class="description">
+        <?php esc_html_e( 'Inlude posts with matching tag', 'HiveWP' ); ?>
+    </p>
+
+
+    <?php
+}
+
+/**
+ * Ex Tag field callback
+ */
+function HiveWP_field_ex_tag_cb( $args ) {
+    // Get the value of the setting we've registered with register_setting()
+    $options = get_option( 'HiveWP_options' );
+    ?>
+          
+             
+    <input id="<?php echo esc_attr( $args['label_for'] ); ?>" type="text" 
+    value="<?php echo isset( $options[ $args['label_for'] ] ) ? $options[ $args['label_for'] ] : ( '' ); ?>"
+        
+    data-custom="<?php echo esc_attr( $args['HiveWP_custom_data'] ); ?>" name="HiveWP_options[<?php echo esc_attr( $args['label_for'] ); ?>]">
+
+          
+    
+    <p class="description">
+        <?php esc_html_e( 'Exclude posts with matching tag', 'HiveWP' ); ?>
     </p>
 
 
@@ -318,13 +393,11 @@ function HiveWP_options_page_html() {
 
         $options = get_option( 'HiveWP_options' );
         $schedule = isset($options['HiveWP_field_schedule']) ? $options['HiveWP_field_schedule'] : ( 'daily' );
-        if ( ! wp_next_scheduled( 'hivewp_cron' ) ) {
-            wp_schedule_event( time(), $schedule, 'hivewp_cron' );
-        }
-        else
-        {
-            wp_reschedule_event( time(), $schedule, 'hivewp_cron' );
-        }
+
+        // Clean up then add
+        wp_clear_scheduled_hook( 'hivewp_cron' );
+        wp_schedule_event( time(), $schedule, 'hivewp_cron' );
+       
 
     }
  
@@ -335,7 +408,7 @@ function HiveWP_options_page_html() {
         <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
         <form action="options.php" method="post">
             <?php
-            // output security fields for the registered setting "HiveWP"
+            // output fields for the registered setting "HiveWP"
             settings_fields( 'HiveWP' );
             // output setting sections and their fields
             // (sections are registered for "HiveWP", each field is registered to a specific section)
@@ -352,7 +425,7 @@ function HiveWP_options_page_html() {
 
 /* ================================= */
 
-
+// Include the markdown parser
 include 'Parsedown.php';
 
     function hivewp_cron() {
@@ -362,6 +435,10 @@ include 'Parsedown.php';
         $hive_user = isset($options['HiveWP_field_user']) ? $options['HiveWP_field_user'] : ( '' );
         $publish = isset($options['HiveWP_field_publish']) ? $options['HiveWP_field_publish'] : ( 'draft' );
         $qty = isset($options['HiveWP_field_qty']) ? $options['HiveWP_field_qty'] : ( '30' );
+
+        $inc_tag = isset($options['HiveWP_field_inc_tag']) ? $options['HiveWP_field_inc_tag'] : ( '' );
+        $ex_tag = isset($options['HiveWP_field_ex_tag']) ? $options['HiveWP_field_ex_tag'] : ( '' );
+
         $list_by_author = isset($options['HiveWP_field_by']) ? $options['HiveWP_field_by'] : ( 'author' );
         if($qty < 1 || $qty > 100) $qty = '30';
 
@@ -377,6 +454,17 @@ include 'Parsedown.php';
             $query = 'https://omiq.ca/Hive/feed.py?blog='.$hive_user.'&by=community&qty='.$qty;
         }
 
+        if($inc_tag != "") 
+        {
+            $query .= '&tag=%'.$inc_tag.'%';
+        }
+
+        if($ex_tag != "") 
+        {
+            $query .= '&filter=%'.$ex_tag.'%';
+        }
+
+
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $query);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
@@ -384,12 +472,24 @@ include 'Parsedown.php';
         // Get the response from the API
         $response = curl_exec($ch);
 
-        // Close the connection
+
+         // Close the connection
         curl_close($ch);
 
         // Get the blog posts
         $posts=json_decode($response, TRUE);
+        
+        // Set up the parser
         $Parsedown = new Parsedown();
+
+    if (!is_countable($posts) || $posts == "") {
+        
+        error_log("CURL:".$query);
+        error_log("RESPONSE:".$response);
+        error_log('Error Details: ' . curl_error($ch));
+
+        exit("No results");
+    }
 
         // Iterate through the returned posts
         for($x = 0; $x < count($posts); $x++) {
@@ -415,7 +515,7 @@ include 'Parsedown.php';
             if ( FALSE === get_post_status( $post_id ) ) {
                 wp_insert_post($wp_post);
             } else {
-                //
+                error_log("Already exists");
             }
       
         }
@@ -425,14 +525,15 @@ include 'Parsedown.php';
     
     add_action('hivewp_cron', 'hivewp_cron');
     
-    add_filter( 'cron_schedules', 'example_add_cron_interval' );
-    function example_add_cron_interval( $schedules ) { 
+    add_filter( 'cron_schedules', 'hivewp_add_cron_interval' );
+    function hivewp_add_cron_interval( $schedules ) { 
         $schedules['30min'] = array(
             'interval' => 60*30,
             'display'  => esc_html__( 'Every 30 Mins' ), );
   
         $schedules['1min'] = array(
-            'interval' => 60,
+            'interval' => 
+            60,
             'display'  => esc_html__( 'Every Minute' ), );
         return $schedules;
     }
