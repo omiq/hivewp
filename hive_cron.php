@@ -428,6 +428,7 @@ function HiveWP_options_page_html() {
 // Include the markdown parser
 include 'Parsedown.php';
 
+    // Download image and store to WP
     function hivewp_upload_image( $image_to_get ) 
     {
 
