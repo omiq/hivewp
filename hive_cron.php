@@ -428,6 +428,68 @@ function HiveWP_options_page_html() {
 // Include the markdown parser
 include 'Parsedown.php';
 
+    function hivewp_upload_image( $image_to_get ) 
+    {
+
+        // for the download_url() and wp_handle_sideload() functions
+        require_once( ABSPATH . 'wp-admin/includes/file.php' );
+
+        // download to temp dir
+        $this_image = download_url( $image_to_get );
+        if( is_wp_error( $this_image ) ) {
+            return false;
+        }
+
+        // move into uploads 
+        $file = array(
+            'name'     => basename( $image_to_get ),
+            'type'     => mime_content_type( $this_image ),
+            'tmp_name' => $this_image,
+            'size'     => filesize( $this_image ),
+        );
+
+        // Use the WP sideload function
+        $sideload = wp_handle_sideload(
+            $file,
+            array(
+                'test_form'   => false // Don't check form 'action' 
+            )
+        );
+
+        if( ! empty( $sideload[ 'error' ] ) ) {
+            // you may return error message if you want
+            error_log("Sideload Error:".$sideload[ 'error' ]);
+        }
+
+        // Add to WordPress media library
+        $attachment_id = wp_insert_attachment(
+            array(
+                'guid'           => $sideload[ 'url' ],
+                'post_mime_type' => $sideload[ 'type' ],
+                'post_title'     => basename( $sideload[ 'file' ] ),
+                'post_content'   => '',
+                'post_status'    => 'inherit',
+            ),
+            $sideload[ 'file' ]
+        );
+
+        if( is_wp_error( $attachment_id ) || ! $attachment_id ) {
+            error_log("Attachment Error");
+        }
+
+        // update medatata, regenerate image sizes
+        require_once( ABSPATH . 'wp-admin/includes/image.php' );
+
+        wp_update_attachment_metadata(
+            $attachment_id,
+            wp_generate_attachment_metadata( $attachment_id, $sideload[ 'file' ] )
+        );
+
+        //error_log("Added Image: ".$sideload['url']);
+        return $sideload[ 'url' ];
+
+    }
+
     function hivewp_cron() {
 
         // If the Hive user is set, use it
@@ -500,6 +562,15 @@ include 'Parsedown.php';
             $image=$meta['image'];
             $tags=join(', ',$meta['tags']);
             $post_id = $post['ID'];
+
+            if (! empty($image))
+            {
+                foreach($image as $next_image)
+                {
+                    $new_image_url = hivewp_upload_image($next_image);
+                    $post['body']=str_ireplace($next_image, $new_image_url, $post['body']);
+                }
+            }
 
             // Insert the post
             $wp_post = array(
