@@ -2,7 +2,7 @@
 /**
  *
  * @link              https://hivewp.com
- * @since             1.0.0
+ * @since             1.0.9
  * @package           Hivewp_cron
  *
  * @wordpress-plugin
@@ -564,28 +564,30 @@ include 'Parsedown.php';
             $tags=join(', ',$meta['tags']);
             $post_id = $post['ID'];
 
-            if (! empty($image))
-            {
-                foreach($image as $next_image)
-                {
-                    $new_image_url = hivewp_upload_image($next_image);
-                    $post['body']=str_ireplace($next_image, $new_image_url, $post['body']);
-                }
-            }
-
-            // Insert the post
-            $wp_post = array(
-                'post_date'=>$post['created'],
-                'post_title'=>$post['title'],
-                'post_content'=>$Parsedown->text($post['body']),
-                'tags_input'=>$tags,
-                'import_id'=>$post_id,
-                'post_status'   => $publish,
-                );
-
-
+            
             if ( FALSE === get_post_status( $post_id ) ) {
                 wp_insert_post($wp_post);
+
+                if (! empty($image))
+                {
+                    foreach($image as $next_image)
+                    {
+                        $new_image_url = hivewp_upload_image($next_image);
+                        $post['body']=str_ireplace($next_image, $new_image_url, $post['body']);
+                    }
+                }
+
+                // Insert the post
+                $wp_post = array(
+                    'post_date'=>$post['created'],
+                    'post_title'=>$post['title'],
+                    'post_content'=>$Parsedown->text($post['body']),
+                    'tags_input'=>$tags,
+                    'import_id'=>$post_id,
+                    'post_status'   => $publish,
+                    );
+
+
             } else {
                 error_log("Already exists");
             }
