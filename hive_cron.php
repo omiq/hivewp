@@ -2,7 +2,7 @@
 /**
  *
  * @link              https://hivewp.com
- * @since             1.0.9
+ * @since             1.1.0
  * @package           Hivewp_cron
  *
  * @wordpress-plugin
