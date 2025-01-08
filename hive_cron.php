@@ -9,7 +9,7 @@
  * Plugin Name:       HiveWP_cron
  * Plugin URI:        https://hivewp.com
  * Description:       Imports the author's blog posts from the Hive Blockchain
- * Version:           1.0.9
+ * Version:           1.10.0
  * Author:            Chris Garrett
  * Author URI:        https://hivewp.com
  * License:           GPL-2.0+
