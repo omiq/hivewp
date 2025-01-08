@@ -6,3 +6,5 @@ This WordPress plugin allows you to syndicate your Hive blog posts to your WordP
 
 
 Requires [Parsedown PHP library](https://github.com/erusev/parsedown) 
+
+NB. The plugin is hard coded to check my server for the RSS, which means any time my server is down the plugin will quietly not be able to grab new posts.
