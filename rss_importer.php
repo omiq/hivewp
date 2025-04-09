@@ -253,8 +253,10 @@ require_once( ABSPATH . 'wp-includes/feed.php' );
  * @return string|false The new URL of the uploaded image, or false on failure.
  */
 function rss_importer_upload_image( $image_url ) {
+    // Increase timeout for potentially large images
+    $timeout_seconds = 30;
     // Download image to temp file
-    $temp_file = download_url( $image_url );
+    $temp_file = download_url( $image_url, $timeout_seconds );
 
     if ( is_wp_error( $temp_file ) ) {
         error_log( 'RSS Importer Error: Failed to download image ' . $image_url . ' - ' . $temp_file->get_error_message() );
@@ -268,9 +270,14 @@ function rss_importer_upload_image( $image_url ) {
     }
     $file_type = wp_check_filetype( $file_name, null );
 
+    // Generate a unique filename based on URL hash + original extension
+    $path_parts = pathinfo($file_name);
+    $extension = isset($path_parts['extension']) ? $path_parts['extension'] : '';
+    $unique_filename = md5($image_url) . ($extension ? '.' . $extension : '');
+
     // Prepare arguments for sideloading
     $file_data = [
-        'name'     => $file_name,
+        'name'     => $unique_filename, // Use unique filename
         'type'     => $file_type['type'],
         'tmp_name' => $temp_file,
         'error'    => 0,
@@ -295,7 +302,7 @@ function rss_importer_upload_image( $image_url ) {
     $attachment = [
         'guid'           => $sideload['url'],
         'post_mime_type' => $sideload['type'],
-        'post_title'     => preg_replace( '/\.[^.]+$/', '', $file_name ), // Title without extension
+        'post_title'     => $unique_filename, // Use unique filename for title
         'post_content'   => '',
         'post_status'    => 'inherit',
     ];
@@ -309,12 +316,15 @@ function rss_importer_upload_image( $image_url ) {
         return false;
     }
 
-    // Generate attachment metadata and update the database
+    // Generate attachment metadata and update the database (Re-enabled)
     $attachment_data = wp_generate_attachment_metadata( $attachment_id, $sideload['file'] );
     wp_update_attachment_metadata( $attachment_id, $attachment_data );
 
+    // error_log('RSS Importer Debug: Skipped metadata generation for attachment ID: ' . $attachment_id);
+
     // error_log('RSS Importer: Successfully uploaded image ' . $sideload['url']);
-    return $sideload['url'];
+    // Return the attachment ID directly on success
+    return $attachment_id;
 }
 
 /**
@@ -477,6 +487,30 @@ function rss_importer_cron() {
         } else {
             // error_log('RSS Importer: Successfully imported post ID ' . $post_id . ' from GUID ' . $guid);
             $imported_count++;
+
+            // Check for image enclosure to set as featured image
+            $enclosure = $item->get_enclosure();
+            if ( $enclosure && $enclosure->get_link() && strpos( $enclosure->get_type(), 'image' ) === 0 ) {
+                $image_url = $enclosure->get_link();
+                error_log('RSS Importer Debug: Found image enclosure. Type: ' . $enclosure->get_type() . ', URL: ' . $image_url);
+
+                $attachment_id = rss_importer_upload_image( $image_url ); // Returns ID or false
+                error_log('RSS Importer Debug: rss_importer_upload_image returned ID: ' . ($attachment_id ? $attachment_id : 'false'));
+
+                if ( $attachment_id ) {
+                    // Use the directly returned attachment_id
+                    // Try using set_post_thumbnail (the standard function)
+
+                    // Final sanity check log
+                    error_log('RSS Importer Debug: PRE-SET CHECK - Post ID: ' . $post_id . ', Attachment ID: ' . $attachment_id);
+
+                    $set_result = set_post_thumbnail( $post_id, $attachment_id );
+                    error_log('RSS Importer Debug: Attempted set_post_thumbnail for post ' . $post_id . ' with attachment_id ' . $attachment_id . '. Result: ' . var_export($set_result, true));
+                } // rss_importer_upload_image handles its own errors
+            } else if ($enclosure) {
+                // Log if enclosure exists but isn't an image or lacks a link
+                error_log('RSS Importer Debug: Found enclosure, but not a valid image type or link. Type: ' . $enclosure->get_type() . ', URL: ' . $enclosure->get_link());
+            }
         }
     }
 
