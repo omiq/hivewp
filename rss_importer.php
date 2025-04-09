@@ -432,5 +432,51 @@ function rss_importer_cron() {
                 '_rss_importer_feed_url' => $feed_url,
                 '_rss_importer_original_link' => $item->get_permalink(),
             ],
-             // TODO: Add support for categories/tags based on feed data?
-             // 'post_category' => [],\n             // 'tags_input' => $item->get_categories(), // Needs processing\n        ];\n\n        // Insert the post\n        $post_id = wp_insert_post( $post_data, true ); // Pass true to return WP_Error on failure\n\n        if ( is_wp_error( $post_id ) ) {\n            error_log( 'RSS Importer Error: Failed to insert post - ' . $post_id->get_error_message() );\n        } else {\n             // error_log('RSS Importer: Successfully imported post ID ' . $post_id . ' from GUID ' . $guid);\n            $imported_count++;\n        }\n    }\n\n    // Optional: Log summary\n    // if ($imported_count > 0) {\n    //     error_log('RSS Importer: Cron run finished. Imported ' . $imported_count . ' posts from ' . $feed_url);\n    // }\n}\n\n// Hook the main function into our custom cron schedule\nadd_action( RSS_IMPORTER_CRON_HOOK, 'rss_importer_cron' );\n\n/**\n * Schedule the cron job on plugin activation.\n */\nfunction rss_importer_activate() {\n    $options = get_option( RSS_IMPORTER_OPTION_NAME );\n    $schedule = isset($options['rss_importer_field_schedule']) ? $options['rss_importer_field_schedule'] : 'hourly';\n    $feed_url = isset($options['rss_importer_field_url']) ? trim($options['rss_importer_field_url']) : '';\n\n    // Only schedule if not already scheduled and feed URL is valid\n    if ( ! wp_next_scheduled( RSS_IMPORTER_CRON_HOOK ) && ! empty( $feed_url ) && wp_validate_url( $feed_url ) ) {\n        wp_schedule_event( time(), $schedule, RSS_IMPORTER_CRON_HOOK );\n    }\n}\nregister_activation_hook( __FILE__, 'rss_importer_activate' );\n\n/**\n * Clear the cron job on plugin deactivation.\n */\nfunction rss_importer_deactivate() {\n    wp_clear_scheduled_hook( RSS_IMPORTER_CRON_HOOK );\n}\nregister_deactivation_hook( __FILE__, 'rss_importer_deactivate' );\n\n// TODO: Add function rss_importer_add_cron_interval() if custom intervals needed (WP default might suffice)\n\n?>
+          ];
+
+        // Insert the post
+        $post_id = wp_insert_post( $post_data, true ); // Pass true to return WP_Error on failure
+
+        if ( is_wp_error( $post_id ) ) {
+            error_log( 'RSS Importer Error: Failed to insert post - ' . $post_id->get_error_message() );
+        } else {
+            // error_log('RSS Importer: Successfully imported post ID ' . $post_id . ' from GUID ' . $guid);
+            $imported_count++;
+        }
+    }
+
+    // Optional: Log summary
+    // if ($imported_count > 0) {
+    //     error_log('RSS Importer: Cron run finished. Imported ' . $imported_count . ' posts from ' . $feed_url);
+    // }
+}
+
+// Hook the main function into our custom cron schedule
+add_action( RSS_IMPORTER_CRON_HOOK, 'rss_importer_cron' );
+
+/**
+ * Schedule the cron job on plugin activation.
+ */
+function rss_importer_activate() {
+    $options = get_option( RSS_IMPORTER_OPTION_NAME );
+    $schedule = isset($options['rss_importer_field_schedule']) ? $options['rss_importer_field_schedule'] : 'hourly';
+    $feed_url = isset($options['rss_importer_field_url']) ? trim($options['rss_importer_field_url']) : '';
+
+    // Only schedule if not already scheduled and feed URL is valid
+    if ( ! wp_next_scheduled( RSS_IMPORTER_CRON_HOOK ) && ! empty( $feed_url ) && wp_validate_url( $feed_url ) ) {
+        wp_schedule_event( time(), $schedule, RSS_IMPORTER_CRON_HOOK );
+    }
+}
+register_activation_hook( __FILE__, 'rss_importer_activate' );
+
+/**
+ * Clear the cron job on plugin deactivation.
+ */
+function rss_importer_deactivate() {
+    wp_clear_scheduled_hook( RSS_IMPORTER_CRON_HOOK );
+}
+register_deactivation_hook( __FILE__, 'rss_importer_deactivate' );
+
+// TODO: Add function rss_importer_add_cron_interval() if custom intervals needed (WP default might suffice)
+
+?>
