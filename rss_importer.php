@@ -408,8 +408,9 @@ function rss_importer_cron() {
         $post_status = 'draft';
     }
 
-    if ( empty( $feed_url ) || ! wp_validate_url( $feed_url ) ) {
-        error_log( 'RSS Importer Error: Cron aborted - Invalid or empty feed URL.' );
+    // Replace wp_validate_url with esc_url_raw check for cron context
+    if ( empty( $feed_url ) || empty( esc_url_raw( $feed_url ) ) ) {
+        error_log( 'RSS Importer Error: Cron aborted - Invalid or empty feed URL provided: ' . $feed_url );
         return; // Don't run if URL is invalid
     }
 
