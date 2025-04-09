@@ -16,6 +16,9 @@ if ( ! defined( 'WPINC' ) ) {
     die;
 }
 
+// Ensure core functions are loaded early
+require_once( ABSPATH . WPINC . '/functions.php' );
+
 define( 'RSS_IMPORTER_OPTION_GROUP', 'rss_importer' );
 define( 'RSS_IMPORTER_OPTION_NAME', 'rss_importer_options' );
 define( 'RSS_IMPORTER_CRON_HOOK', 'rss_importer_cron_hook' );
@@ -174,23 +177,7 @@ function rss_importer_options_page_html() {
         return;
     }
 
-    if ( isset( $_GET['settings-updated'] ) ) {
-        add_settings_error( 'rss_importer_messages', 'rss_importer_message', __( 'Settings Saved', 'rss-importer' ), 'updated' );
-
-        // Reschedule cron job
-        $options = get_option( RSS_IMPORTER_OPTION_NAME );
-        $schedule = isset($options['rss_importer_field_schedule']) ? $options['rss_importer_field_schedule'] : 'hourly';
-        $feed_url = isset($options['rss_importer_field_url']) ? trim($options['rss_importer_field_url']) : '';
-
-        wp_clear_scheduled_hook( RSS_IMPORTER_CRON_HOOK );
-        if ( !empty($feed_url) && wp_validate_url($feed_url) ) {
-             wp_schedule_event( time(), $schedule, RSS_IMPORTER_CRON_HOOK );
-             add_settings_error( 'rss_importer_messages', 'rss_importer_schedule_ok', __( 'Feed check scheduled.', 'rss-importer' ), 'updated' );
-        } else {
-             add_settings_error( 'rss_importer_messages', 'rss_importer_schedule_fail', __( 'Feed check NOT scheduled (invalid or empty URL).', 'rss-importer' ), 'error' );
-        }
-    }
-
+    // Display persistent update messages
     settings_errors( 'rss_importer_messages' );
     ?>
     <div class="wrap">
@@ -205,6 +192,53 @@ function rss_importer_options_page_html() {
     </div>
     <?php
 }
+
+/**
+ * Handle rescheduling the cron job when the plugin options are updated.
+ *
+ * @param mixed $old_value The old option value.
+ * @param mixed $new_value The new option value.
+ */
+function rss_importer_handle_options_update( $old_value, $new_value ) {
+    // Remove debug logs
+    /*
+    if ( ! function_exists( 'wp_validate_url' ) ) {
+        error_log( 'RSS Importer Debug: wp_validate_url() does NOT exist in rss_importer_handle_options_update.' );
+    } else {
+        error_log( 'RSS Importer Debug: wp_validate_url() DOES exist in rss_importer_handle_options_update.' );
+    }
+    */
+
+    $schedule = isset($new_value['rss_importer_field_schedule']) ? $new_value['rss_importer_field_schedule'] : 'hourly';
+    $feed_url = isset($new_value['rss_importer_field_url']) ? trim($new_value['rss_importer_field_url']) : '';
+
+    // Clear any existing schedule for this hook
+    wp_clear_scheduled_hook( RSS_IMPORTER_CRON_HOOK );
+
+    // Ensure functions.php is loaded before calling wp_validate_url
+    // require_once( ABSPATH . WPINC . '/functions.php' ); // Removed as it didn't solve the issue
+
+    // Check if the URL is valid (using esc_url_raw as alternative) before scheduling
+    if ( ! empty( $feed_url ) && ! empty( esc_url_raw( $feed_url ) ) ) {
+        wp_schedule_event( time(), $schedule, RSS_IMPORTER_CRON_HOOK );
+        // Add a persistent admin notice for success
+        add_settings_error(
+            'rss_importer_messages', // Use the same slug as settings_errors()
+            'rss_importer_schedule_ok',
+            __( 'Feed check scheduled.', 'rss-importer' ),
+            'updated' // 'updated' or 'success'
+        );
+    } else {
+        // Add a persistent admin notice for failure
+        add_settings_error(
+            'rss_importer_messages',
+            'rss_importer_schedule_fail',
+            __( 'Feed check NOT scheduled (invalid or empty URL).', 'rss-importer' ),
+            'error'
+        );
+    }
+}
+add_action( 'update_option_' . RSS_IMPORTER_OPTION_NAME, 'rss_importer_handle_options_update', 10, 2 );
 
 // Include necessary files for image handling and feed fetching
 require_once( ABSPATH . 'wp-admin/includes/media.php' );
