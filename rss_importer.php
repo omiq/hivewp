@@ -371,14 +371,22 @@ function rss_importer_process_content_images( $content ) {
         }
 
         // Attempt to upload the image
-        $new_src = rss_importer_upload_image( $original_src );
+        $attachment_id = rss_importer_upload_image( $original_src ); // Pass 0 for post_id as post doesn't exist yet
 
-        if ( $new_src ) {
-            // If upload successful, update the src attribute
-            $img->setAttribute( 'src', $new_src );
-            $processed_urls[ $original_src ] = $new_src;
+        // Check if upload was successful (returned an ID)
+        if ( ! is_wp_error( $attachment_id ) && is_numeric( $attachment_id ) && $attachment_id > 0 ) {
+            // Get the URL of the newly uploaded image
+            $new_url = wp_get_attachment_url( $attachment_id );
+            if ( $new_url ) {
+                // Update the src attribute with the correct URL
+                $img->setAttribute( 'src', $new_url );
+                $processed_urls[ $original_src ] = $new_url;
+            } else {
+                // Couldn't get URL, mark as processed to avoid retries
+                 $processed_urls[ $original_src ] = false;
+            }
         } else {
-            // Mark as processed even if failed to prevent retries
+            // Upload failed or returned an error
             $processed_urls[ $original_src ] = false;
         }
     }
