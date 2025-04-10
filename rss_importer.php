@@ -250,9 +250,10 @@ require_once( ABSPATH . 'wp-includes/feed.php' );
  * Downloads an image from a URL, saves it to the media library, and returns the new URL.
  *
  * @param string $image_url The URL of the image to download.
+ * @param int    $post_id   The ID of the post this image is being attached to.
  * @return string|false The new URL of the uploaded image, or false on failure.
  */
-function rss_importer_upload_image( $image_url ) {
+function rss_importer_upload_image( $image_url, $post_id = 0 ) {
     // Increase timeout for potentially large images
     $timeout_seconds = 30;
     // Download image to temp file
@@ -268,62 +269,40 @@ function rss_importer_upload_image( $image_url ) {
     if ( ! $file_name ) {
         $file_name = 'rss-imported-image-' . time(); // Fallback name
     }
-    $file_type = wp_check_filetype( $file_name, null );
-
-    // Generate a unique filename based on URL hash + original extension
-    $path_parts = pathinfo($file_name);
-    $extension = isset($path_parts['extension']) ? $path_parts['extension'] : '';
-    $unique_filename = md5($image_url) . ($extension ? '.' . $extension : '');
-
-    // Prepare arguments for sideloading
-    $file_data = [
-        'name'     => $unique_filename, // Use unique filename
-        'type'     => $file_type['type'],
-        'tmp_name' => $temp_file,
-        'error'    => 0,
-        'size'     => filesize( $temp_file ),
+    // $file_type = wp_check_filetype( $file_name, null ); // Not needed for media_handle_sideload
+ 
+     // Generate a unique filename based on URL hash + original extension
+     $path_parts = pathinfo($file_name);
+     $extension = isset($path_parts['extension']) ? $path_parts['extension'] : '';
+     $unique_filename = $file_name; // Use original filename
+ 
+    // Prepare file array for media_handle_sideload
+    $file_array = [
+        'name'     => $unique_filename, // The desired filename
+        'tmp_name' => $temp_file      // Path to the temporary file downloaded by download_url
     ];
-
-    $overrides = [
-        'test_form' => false,
-        'test_type' => false, // Allow all standard image types
-    ];
-
-    // Move the temporary file into the uploads directory
-    $sideload = wp_handle_sideload( $file_data, $overrides );
-
-    if ( isset( $sideload['error'] ) ) {
-        @unlink( $temp_file ); // Delete temp file
-        error_log( 'RSS Importer Error: Sideload failed - ' . $sideload['error'] );
+ 
+    // Check if the required function exists.
+    if ( ! function_exists( 'media_handle_sideload' ) ) {
+        @unlink( $temp_file );
+        error_log('RSS Importer Error: media_handle_sideload function does not exist!');
         return false;
     }
-
-    // Prepare attachment data
-    $attachment = [
-        'guid'           => $sideload['url'],
-        'post_mime_type' => $sideload['type'],
-        'post_title'     => $unique_filename, // Use unique filename for title
-        'post_content'   => '',
-        'post_status'    => 'inherit',
-    ];
-
-    // Insert the attachment
-    $attachment_id = wp_insert_attachment( $attachment, $sideload['file'] );
-
+ 
+    // Let WordPress handle the sideloading, attachment creation, and metadata generation.
+    // Pass $post_id to associate the attachment with the post.
+    $attachment_id = media_handle_sideload( $file_array, $post_id );
+ 
+    // Check for errors
     if ( is_wp_error( $attachment_id ) ) {
-        @unlink( $sideload['file'] ); // Delete sideloaded file
-        error_log( 'RSS Importer Error: Failed to insert attachment - ' . $attachment_id->get_error_message() );
+        @unlink( $temp_file ); // Delete temp file
+        error_log( 'RSS Importer Error: media_handle_sideload failed - ' . $attachment_id->get_error_message() );
         return false;
+    } else {
+        error_log( 'RSS Importer Debug: media_handle_sideload successful. Attachment ID: ' . $attachment_id );
+        // No need for separate metadata generation, media_handle_sideload does it.
     }
-
-    // Generate attachment metadata and update the database (Re-enabled)
-    $attachment_data = wp_generate_attachment_metadata( $attachment_id, $sideload['file'] );
-    wp_update_attachment_metadata( $attachment_id, $attachment_data );
-
-    // error_log('RSS Importer Debug: Skipped metadata generation for attachment ID: ' . $attachment_id);
-
-    // error_log('RSS Importer: Successfully uploaded image ' . $sideload['url']);
-    // Return the attachment ID directly on success
+    // Return the attachment ID on success
     return $attachment_id;
 }
 
@@ -402,6 +381,8 @@ function rss_importer_post_exists( $guid ) {
  * Main cron function to fetch and import posts.
  */
 function rss_importer_cron() {
+    global $wpdb; // Make the database object available
+
     $options   = get_option( RSS_IMPORTER_OPTION_NAME );
     $feed_url  = isset( $options['rss_importer_field_url'] ) ? trim( $options['rss_importer_field_url'] ) : '';
     $post_qty  = isset( $options['rss_importer_field_qty'] ) ? absint( $options['rss_importer_field_qty'] ) : 10;
@@ -442,6 +423,7 @@ function rss_importer_cron() {
     }
 
     $imported_count = 0;
+    $last_attachment_id_created = null; // Track the last attachment ID
 
     // Loop through items
     foreach ( $feed_items as $item ) {
@@ -494,14 +476,21 @@ function rss_importer_cron() {
                 $image_url = $enclosure->get_link();
                 error_log('RSS Importer Debug: Found image enclosure. Type: ' . $enclosure->get_type() . ', URL: ' . $image_url);
 
-                $attachment_id = rss_importer_upload_image( $image_url ); // Returns ID or false
+                $attachment_id = rss_importer_upload_image( $image_url, $post_id ); // Returns ID or false
+
+                
+
+                error_log('Attachment ID: ' . $attachment_id);
+
                 error_log('RSS Importer Debug: rss_importer_upload_image returned ID: ' . ($attachment_id ? $attachment_id : 'false'));
 
                 if ( $attachment_id ) {
-                    // Use the directly returned attachment_id
-                    // Try using set_post_thumbnail (the standard function)
+                    // Check if metadata actually exists for the attachment before setting
+                    $last_attachment_id_created = $attachment_id; // Store the latest ID
 
-                    // Final sanity check log
+                    $attachment_meta = get_post_meta( $attachment_id, '_wp_attachment_metadata', true );
+                    error_log('RSS Importer Debug: Metadata check for attachment ID ' . $attachment_id . ': ' . ( empty($attachment_meta) ? 'MISSING' : 'FOUND' ) );
+
                     error_log('RSS Importer Debug: PRE-SET CHECK - Post ID: ' . $post_id . ', Attachment ID: ' . $attachment_id);
 
                     $set_result = set_post_thumbnail( $post_id, $attachment_id );
@@ -514,10 +503,15 @@ function rss_importer_cron() {
         }
     }
 
-    // Optional: Log summary
-    // if ($imported_count > 0) {
-    //     error_log('RSS Importer: Cron run finished. Imported ' . $imported_count . ' posts from ' . $feed_url);
-    // }
+    // Final check: Does the last created attachment still exist?
+    if ( $last_attachment_id_created ) {
+        $final_check_post = get_post( $last_attachment_id_created );
+        if ( $final_check_post && $final_check_post->post_type === 'attachment' ) {
+            error_log('RSS Importer Debug: End-of-cron check: Attachment ID ' . $last_attachment_id_created . ' still exists.');
+        } else {
+            error_log('RSS Importer CRITICAL: End-of-cron check: Attachment ID ' . $last_attachment_id_created . ' appears to be MISSING or not an attachment!');
+        }
+    }
 }
 
 // Hook the main function into our custom cron schedule
@@ -547,5 +541,25 @@ function rss_importer_deactivate() {
 register_deactivation_hook( __FILE__, 'rss_importer_deactivate' );
 
 // TODO: Add function rss_importer_add_cron_interval() if custom intervals needed (WP default might suffice)
+
+// /**
+//  * Force WordPress to use GD library instead of Imagick for testing.
+//  *
+//  * @param array $editors Array of available image editor class names.
+//  * @return array Filtered array of image editor class names.
+//  */
+// function rss_importer_force_gd_editor( $editors ) {
+//     // Remove Imagick editor if it exists
+//     $editors = array_diff( $editors, [ 'WP_Image_Editor_Imagick' ] );
+//     // Ensure GD editor is present (it usually is by default)
+//     if ( ! in_array( 'WP_Image_Editor_GD', $editors ) ) {
+//         // This is unlikely, but just in case GD wasn't listed initially
+//         // Note: This doesn't guarantee GD *will* work if it's not properly configured
+//     }
+// 	// Optionally log which editors are remaining
+// 	// error_log('RSS Importer Debug: Available Image Editors: ' . print_r($editors, true));
+//     return $editors;
+// }
+// add_filter( 'wp_image_editors', 'rss_importer_force_gd_editor' );
 
 ?>
