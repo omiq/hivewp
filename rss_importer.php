@@ -75,6 +75,15 @@ function rss_importer_settings_init() {
     );
 
     add_settings_field(
+        'rss_importer_field_category',
+        __( 'Import Category', 'rss-importer' ),
+        'rss_importer_field_category_cb',
+        RSS_IMPORTER_OPTION_GROUP,
+        'rss_importer_section_main',
+        [ 'label_for' => 'rss_importer_field_category' ]
+    );
+
+    add_settings_field(
         'rss_importer_field_status',
         __( 'Import Status', 'rss-importer' ),
         'rss_importer_field_status_cb',
@@ -143,6 +152,32 @@ function rss_importer_field_qty_cb( $args ) {
            min="1" max="100" step="1" class="small-text">
     <p class="description">
         <?php esc_html_e( 'Maximum number of posts to import per check (1-100).', 'rss-importer' ); ?>
+    </p>
+    <?php
+}
+
+function rss_importer_field_category_cb( $args ) {
+    $value = rss_importer_get_option( $args['label_for'], '0' ); // Default to 0 (Uncategorized typically)
+
+	$dropdown_args = [
+		'show_option_none' => __( '&mdash; Select Category &mdash;', 'rss-importer' ), // Text for the default option
+		'option_none_value' => '0', // Value for the default option (0 often means Uncategorized or none)
+		'hide_empty'       => 0, // Show categories even if they have no posts
+		'name'             => RSS_IMPORTER_OPTION_NAME . '[' . esc_attr( $args['label_for'] ) . ']',
+		'id'               => esc_attr( $args['label_for'] ),
+		'selected'         => $value,
+		'hierarchical'     => true,
+		'orderby'          => 'name',
+		'taxonomy'         => 'category', // Ensure we get post categories
+		'echo'             => 1, // Directly echo the dropdown
+		'class'            => 'regular-text' // Optional class for styling
+	];
+
+	wp_dropdown_categories( $dropdown_args );
+
+    ?>
+    <p class="description">
+        <?php esc_html_e( 'Select the category to assign to imported posts.', 'rss-importer' ); ?>
     </p>
     <?php
 }
@@ -387,6 +422,7 @@ function rss_importer_cron() {
     $feed_url  = isset( $options['rss_importer_field_url'] ) ? trim( $options['rss_importer_field_url'] ) : '';
     $post_qty  = isset( $options['rss_importer_field_qty'] ) ? absint( $options['rss_importer_field_qty'] ) : 10;
     $post_status = isset( $options['rss_importer_field_status'] ) ? sanitize_key( $options['rss_importer_field_status'] ) : 'draft';
+    $post_category = isset( $options['rss_importer_field_category'] ) ? absint( $options['rss_importer_field_category'] ) : 0;
 
     // Validate quantity
     if ( $post_qty < 1 || $post_qty > 100 ) {
@@ -450,6 +486,7 @@ function rss_importer_cron() {
         $post_data = [
             'post_title'   => wp_strip_all_tags( $item->get_title() ),
             'post_content' => wp_kses_post( $processed_content ), // Sanitize content
+            'post_category' => ( $post_category > 0 ) ? [ $post_category ] : [], // Assign category if selected
             'post_status'  => $post_status,
             'post_author'  => 1, // TODO: Make author configurable?
             'post_date'    => $item->get_date( 'Y-m-d H:i:s' ), // Use feed item date
