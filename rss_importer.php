@@ -571,7 +571,7 @@ function rss_importer_activate() {
     $feed_url = isset($options['rss_importer_field_url']) ? trim($options['rss_importer_field_url']) : '';
 
     // Only schedule if not already scheduled and feed URL is valid
-    if ( ! wp_next_scheduled( RSS_IMPORTER_CRON_HOOK ) && ! empty( $feed_url ) && wp_validate_url( $feed_url ) ) {
+    if ( ! wp_next_scheduled( RSS_IMPORTER_CRON_HOOK ) && ! empty( $feed_url ) && ! empty( esc_url_raw( $feed_url ) ) ) {
         wp_schedule_event( time(), $schedule, RSS_IMPORTER_CRON_HOOK );
     }
 }
