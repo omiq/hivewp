@@ -42,3 +42,8 @@ This WordPress plugin imports posts from a specified RSS or Atom feed into your 
 *   Import scheduling relies on WP-Cron, which depends on site traffic to trigger schedules. For guaranteed timing, consider setting up a server-level cron job to hit `wp-cron.php`.
 *   Image import success depends on the remote server allowing downloads, PHP memory limits, and correct image library setup on your server.
 *   The author for imported posts is currently hardcoded to user ID 1 (the initial admin user). This could be made configurable in future versions.
+
+
+
+
+
